@@ -17,9 +17,6 @@ class User(UserBase):
     updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
-class UserInDB(User):
-    hashed_password: str
-
 class Token(BaseModel):
     access_token: str
     token_type: str
@@ -34,7 +31,7 @@ class CustomerBase(BaseModel):
 class CustomerCreate(CustomerBase):
     name: str
     email: EmailStr
-    password: str  # Password for the associated user account
+    password: str
 
 class CustomerResponse(BaseModel):
     id: int
@@ -57,26 +54,22 @@ class AccountCreate(BaseModel):
         """Convert initial deposit from dollars to cents"""
         return int(self.initial_deposit * 100)
 
-class LedgerEntryBase(BaseModel):
+class LedgerEntry(BaseModel):
     entry_type: EntryType
     amount_cents: int = Field(gt=0)
+    id: int
+    transaction_id: int 
+    account_id: int
+    model_config = ConfigDict(from_attributes=True)
 
     @computed_field
     def amount(self) -> float:
         """Get amount in dollars"""
         return self.amount_cents / 100
 
-class LedgerEntry(LedgerEntryBase):
-    id: int
-    transaction_id: int
-    account_id: int
-    model_config = ConfigDict(from_attributes=True)
-
-class TransactionBase(BaseModel):
+class Transaction(BaseModel):
     transaction_type: TransactionType
     description: str
-
-class Transaction(TransactionBase):
     id: int
     timestamp: datetime
     entries: List[LedgerEntry]
