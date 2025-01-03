@@ -33,8 +33,6 @@ def get_customers(
             (models.Customer.name.ilike(search_term)) |
             (models.Customer.email.ilike(search_term))
         )
-    
-    # Add ordering before pagination
     query = query.order_by(models.Customer.id.asc())
     
     total = query.count()
@@ -81,21 +79,16 @@ def get_customer_accounts(
         limit: Maximum number of accounts to return
         db: Database session
     """
-    # Verify customer exists
     customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
-    # Build query
     query = db.query(models.Account).filter(models.Account.customer_id == customer_id)
     
-    # Get total before pagination
     total = query.count()
     
-    # Apply pagination
     accounts = query.order_by(models.Account.created_at.desc()).offset(skip).limit(limit).all()
-    
-    # Calculate total balance
+
     total_balance = sum(account.balance for account in accounts)
     
     return {
@@ -119,10 +112,8 @@ def create_account(account: schemas.AccountCreate, db: Session = Depends(get_db)
     if not customer:
         raise HTTPException(status_code=404, detail="Customer not found")
     
-    # Generate unique account number with sequence
     account_number = generate_account_number(db)
     
-    # Create account
     db_account = models.Account(
         account_number=account_number,
         customer_id=account.customer_id
@@ -130,7 +121,6 @@ def create_account(account: schemas.AccountCreate, db: Session = Depends(get_db)
     db.add(db_account)
     db.flush()  # Get the account ID
     
-    # Create initial deposit transaction
     transaction = models.Transaction(
         transaction_type=TransactionType.DEPOSIT,
         description=f"Initial deposit of ${account.initial_deposit:.2f}"
@@ -138,7 +128,6 @@ def create_account(account: schemas.AccountCreate, db: Session = Depends(get_db)
     db.add(transaction)
     db.flush()  # Get the transaction ID
     
-    # Create ledger entry for the deposit
     ledger_entry = models.LedgerEntry(
         transaction_id=transaction.id,
         account_id=db_account.id,
@@ -164,7 +153,6 @@ def create_transfer(transfer: schemas.TransferCreate, db: Session = Depends(get_
     if from_account.balance_cents < amount_cents:
         raise HTTPException(status_code=400, detail="Insufficient funds")
     
-    # Create transaction
     transaction = models.Transaction(
         transaction_type=TransactionType.TRANSFER,
         description=transfer.description
@@ -172,7 +160,6 @@ def create_transfer(transfer: schemas.TransferCreate, db: Session = Depends(get_
     db.add(transaction)
     db.flush()  # Get the transaction ID
     
-    # Create ledger entries
     debit_entry = models.LedgerEntry(
         transaction_id=transaction.id,
         account_id=from_account.id,
