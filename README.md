@@ -140,7 +140,8 @@ Request Body:
 ```json
 {
     "name": "John Doe",
-    "email": "john@example.com"
+    "email": "john@example.com",
+    "password": "test123"
 }
 ```
 
