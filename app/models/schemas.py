@@ -52,12 +52,24 @@ class Account(BaseModel):
     account_number: str
     customer_id: int
     balance_cents: int
+    created_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
     @computed_field
     def balance(self) -> float:
         """Get balance in dollars"""
         return self.balance_cents / 100
+
+class CustomerList(BaseModel):
+    """Response model for list of customers"""
+    customers: List[Customer]
+    total: int
+
+class AccountList(BaseModel):
+    """Response model for list of accounts"""
+    accounts: List[Account]
+    total: int
+    total_balance: float
 
 class TransferCreate(BaseModel):
     from_account_id: int

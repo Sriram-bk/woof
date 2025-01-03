@@ -1,5 +1,6 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
+from typing import Optional
 
 from ..database import get_db
 from ..models import models, schemas
@@ -7,6 +8,101 @@ from ..models.models import EntryType, TransactionType
 from ..utils import generate_account_number
 
 router = APIRouter()
+
+@router.get("/customers/", response_model=schemas.CustomerList)
+def get_customers(
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Get list of customers with optional search and pagination.
+    
+    Args:
+        skip: Number of customers to skip (offset)
+        limit: Maximum number of customers to return
+        search: Optional search term for customer name or email
+        db: Database session
+    """
+    query = db.query(models.Customer)
+    
+    if search:
+        search_term = f"%{search}%"
+        query = query.filter(
+            (models.Customer.name.ilike(search_term)) |
+            (models.Customer.email.ilike(search_term))
+        )
+    
+    # Add ordering before pagination
+    query = query.order_by(models.Customer.id.asc())
+    
+    total = query.count()
+    customers = query.offset(skip).limit(limit).all()
+    
+    return {
+        "customers": customers,
+        "total": total
+    }
+
+@router.get("/customers/{customer_id}", response_model=schemas.Customer)
+def get_customer(customer_id: int, db: Session = Depends(get_db)):
+    """
+    Get customer details.
+    
+    Args:
+        customer_id: ID of the customer
+        db: Database session
+    """
+    customer = (
+        db.query(models.Customer)
+        .filter(models.Customer.id == customer_id)
+        .first()
+    )
+    
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    return customer
+
+@router.get("/customers/{customer_id}/accounts", response_model=schemas.AccountList)
+def get_customer_accounts(
+    customer_id: int,
+    skip: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+    db: Session = Depends(get_db)
+):
+    """
+    Get all accounts for a specific customer with pagination.
+    
+    Args:
+        customer_id: ID of the customer
+        skip: Number of accounts to skip (offset)
+        limit: Maximum number of accounts to return
+        db: Database session
+    """
+    # Verify customer exists
+    customer = db.query(models.Customer).filter(models.Customer.id == customer_id).first()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    
+    # Build query
+    query = db.query(models.Account).filter(models.Account.customer_id == customer_id)
+    
+    # Get total before pagination
+    total = query.count()
+    
+    # Apply pagination
+    accounts = query.order_by(models.Account.created_at.desc()).offset(skip).limit(limit).all()
+    
+    # Calculate total balance
+    total_balance = sum(account.balance for account in accounts)
+    
+    return {
+        "accounts": accounts,
+        "total": total,
+        "total_balance": total_balance
+    }
 
 @router.post("/customers/", response_model=schemas.Customer)
 def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db)):
