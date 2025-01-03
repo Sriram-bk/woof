@@ -4,6 +4,8 @@ A FastAPI-based banking system that implements a double-entry ledger system for 
 
 ## Features
 
+- User authentication with JWT tokens
+- Role-based access control (admin/non-admin users)
 - Create and manage customer accounts
 - Create bank accounts with initial deposits
 - Transfer money between accounts
@@ -12,6 +14,52 @@ A FastAPI-based banking system that implements a double-entry ledger system for 
 - Double-entry ledger system for accurate financial records
 
 ## API Endpoints
+
+### Authentication
+
+#### Register User
+```http
+POST /api/v1/auth/register
+```
+Register a new user. By default, users are registered as non-admin users. Admin status must be granted manually in the database.
+
+Request Body:
+```json
+{
+    "email": "john@example.com",
+    "password": "secretpassword"
+}
+```
+
+Response:
+```json
+{
+    "id": 1,
+    "email": "john@example.com",
+    "is_active": true,
+    "is_admin": false,
+    "created_at": "2023-12-15T10:30:00Z",
+    "updated_at": "2023-12-15T10:30:00Z"
+}
+```
+
+#### Login
+```http
+POST /api/v1/auth/token
+```
+Login to get an access token. Note: The login form uses the email as the username field.
+
+Request Body (form-data):
+- `username`: User's email address
+- `password`: User's password
+
+Response:
+```json
+{
+    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+    "token_type": "bearer"
+}
+```
 
 ### Customers
 
@@ -181,10 +229,19 @@ Response:
   - YYYYMMDD: Current date
   - NNNNN: 5-digit daily sequence number
   - XXX: 3 random alphanumeric characters
+- Role-based access control with admin/non-admin users
+
+## Security
+
+- JWT token-based authentication
+- Role-based authorization (admin/non-admin)
+- Password hashing using bcrypt
+- Email-based user identification
+- Token expiration
 
 ## Future Improvements
 
-- Add authentication and authorization
+- Add admin user management interface
 - Add support for different currencies
 - Add support for recurring transfers
 - Implement account statements generation

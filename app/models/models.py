@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Enum, func, Boolean
 from sqlalchemy.orm import DeclarativeBase, relationship
 from datetime import datetime
 import enum
@@ -21,13 +21,33 @@ class DailyAccountSequence(Base):
     date = Column(String, primary_key=True)
     sequence = Column(Integer, default=0)
 
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String, unique=True, index=True, nullable=False)
+    hashed_password = Column(String, nullable=False)
+    is_active = Column(Boolean, default=True)
+    is_admin = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationship to customers they can manage
+    customers = relationship("Customer", back_populates="user")
+
 class Customer(Base):
     __tablename__ = "customers"
-    
+
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True)
-    email = Column(String, unique=True, index=True)
-    accounts = relationship("Account", back_populates="owner")
+    name = Column(String, nullable=False)
+    email = Column(String, unique=True, index=True, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at = Column(DateTime, default=func.now(), nullable=False)
+    updated_at = Column(DateTime, default=func.now(), onupdate=func.now(), nullable=False)
+
+    # Relationships
+    accounts = relationship("Account", back_populates="customer")
+    user = relationship("User", back_populates="customers")
 
 class Account(Base):
     __tablename__ = "accounts"
@@ -35,8 +55,8 @@ class Account(Base):
     id = Column(Integer, primary_key=True, index=True)
     account_number = Column(String, unique=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"))
-    created_at = Column(DateTime, default=datetime.utcnow)
-    owner = relationship("Customer", back_populates="accounts")
+    created_at = Column(DateTime, default=datetime.now())
+    customer = relationship("Customer", back_populates="accounts")
     ledger_entries = relationship("LedgerEntry", back_populates="account")
 
     @property

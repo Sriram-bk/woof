@@ -1,17 +1,52 @@
-from pydantic import BaseModel, Field, ConfigDict, computed_field
-from typing import List
+from pydantic import BaseModel, Field, ConfigDict, computed_field, EmailStr
+from typing import List, Optional
 from datetime import datetime
 from ..models.models import EntryType, TransactionType
 
+class UserBase(BaseModel):
+    email: EmailStr
+
+class UserCreate(UserBase):
+    password: str
+
+class User(UserBase):
+    id: int
+    is_active: bool
+    is_admin: bool
+    created_at: datetime
+    updated_at: datetime
+    model_config = ConfigDict(from_attributes=True)
+
+class UserInDB(User):
+    hashed_password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    email: Optional[str] = None
+
 class CustomerBase(BaseModel):
     name: str
-    email: str
+    email: EmailStr
 
 class CustomerCreate(CustomerBase):
-    pass
+    name: str
+    email: EmailStr
+    password: str  # Password for the associated user account
+
+class CustomerResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    model_config = ConfigDict(from_attributes=True)
 
 class Customer(CustomerBase):
     id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
     model_config = ConfigDict(from_attributes=True)
 
 class AccountCreate(BaseModel):

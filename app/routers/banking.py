@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 from typing import Optional
 
@@ -6,8 +6,9 @@ from ..database import get_db
 from ..models import models, schemas
 from ..models.models import EntryType, TransactionType
 from ..utils import generate_account_number
+from ..auth.utils import get_current_admin, get_password_hash
 
-router = APIRouter()
+router = APIRouter(dependencies=[Depends(get_current_admin)])
 
 @router.get("/customers/", response_model=schemas.CustomerList)
 def get_customers(
@@ -97,13 +98,44 @@ def get_customer_accounts(
         "total_balance": total_balance
     }
 
-@router.post("/customers/", response_model=schemas.Customer)
-def create_customer(customer: schemas.CustomerCreate, db: Session = Depends(get_db)):
-    db_customer = models.Customer(name=customer.name, email=customer.email)
+@router.post("/customers/", response_model=schemas.CustomerResponse)
+def create_customer(
+    customer: schemas.CustomerCreate,
+    db: Session = Depends(get_db)
+):
+    """Create a new customer."""
+    # Check if user with email already exists
+    existing_user = db.query(models.User).filter(models.User.email == customer.email).first()
+    if existing_user:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already registered"
+        )
+    
+    # Create new user
+    user = models.User(
+        email=customer.email,
+        hashed_password=get_password_hash(customer.password),
+        is_admin=False
+    )
+    db.add(user)
+    db.flush()  # Get the user ID
+    
+    # Create customer
+    db_customer = models.Customer(
+        name=customer.name,
+        email=customer.email,
+        user_id=user.id
+    )
     db.add(db_customer)
     db.commit()
     db.refresh(db_customer)
-    return db_customer
+    
+    return schemas.CustomerResponse(
+        id=db_customer.id,
+        name=db_customer.name,
+        email=db_customer.email
+    )
 
 @router.post("/accounts/", response_model=schemas.Account)
 def create_account(account: schemas.AccountCreate, db: Session = Depends(get_db)):
